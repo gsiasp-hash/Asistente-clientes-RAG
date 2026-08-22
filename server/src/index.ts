@@ -4,6 +4,7 @@ import cors from 'cors'
 import { documentsRouter } from './routes/documentRoutes.js'
 import { chatRouter } from './routes/chatRoutes.js'
 import { errorHandler } from './middleware/errorHandler.js'
+import { startCleanupJob } from './services/cleanupService.js'
 
 const app = express()
 
@@ -27,4 +28,5 @@ const port = Number(process.env.PORT ?? 5000)
 
 app.listen(port, () => {
   console.log(`API listening on http://localhost:${port}`)
+  startCleanupJob()
 })

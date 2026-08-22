@@ -7,11 +7,23 @@ import { HttpError } from '../utils/errors.js'
 const CHUNK_SIZE = 500
 const CHUNK_OVERLAP = 50
 const INSERT_BATCH_SIZE = 200
+export const MAX_DOCS_PER_SESSION = 5
+export const MAX_CHUNKS_PER_SESSION = 300
 
 export interface DocumentSummary {
   fileName: string
   sections: number
   lastIngested: string
+}
+
+export interface DocumentsByScope {
+  demo: DocumentSummary[]
+  mine: DocumentSummary[]
+}
+
+export interface SessionUsage {
+  docs: number
+  chunks: number
 }
 
 export interface IngestResult {
@@ -21,6 +33,7 @@ export interface IngestResult {
 
 interface SectionRow {
   file_name: string
+  session_id: string | null
   created_at: string | null
 }
 
@@ -42,41 +55,58 @@ async function extractPdf(buffer: Buffer): Promise<{ text: string; pages: number
   }
 }
 
-export async function sectionCount(fileName: string): Promise<number> {
-  const { count, error } = await supabase
+export async function sectionCount(fileName: string, sessionId: string | null): Promise<number> {
+  let query = supabase
     .from('document_sections')
     .select('*', { count: 'exact', head: true })
     .eq('file_name', fileName)
+  query = sessionId === null ? query.is('session_id', null) : query.eq('session_id', sessionId)
 
+  const { count, error } = await query
   if (error) throw new Error(`Supabase: ${error.message}`)
   return count ?? 0
 }
 
-export async function deleteSections(fileName: string): Promise<number> {
-  const { data, error } = await supabase
-    .from('document_sections')
-    .delete()
-    .eq('file_name', fileName)
-    .select('id')
+export async function deleteSections(fileName: string, sessionId: string | null): Promise<number> {
+  let query = supabase.from('document_sections').delete().eq('file_name', fileName)
+  query = sessionId === null ? query.is('session_id', null) : query.eq('session_id', sessionId)
 
+  const { data, error } = await query.select('id')
   if (error) throw new Error(`Supabase: ${error.message}`)
   return data?.length ?? 0
 }
 
-export async function listDocuments(): Promise<DocumentSummary[]> {
+export async function getSessionUsage(sessionId: string): Promise<SessionUsage> {
   const { data, error } = await supabase
     .from('document_sections')
-    .select('file_name, created_at')
+    .select('file_name')
+    .eq('session_id', sessionId)
+
+  if (error) throw new Error(`Supabase: ${error.message}`)
+
+  const rows = (data ?? []) as Array<{ file_name: string }>
+  return {
+    docs: new Set(rows.map((r) => r.file_name)).size,
+    chunks: rows.length,
+  }
+}
+
+export async function listDocuments(currentSessionId: string): Promise<DocumentsByScope> {
+  const { data, error } = await supabase.from('document_sections').select('file_name, session_id, created_at')
 
   if (error) throw new Error(`Supabase: ${error.message}`)
 
   const rows = (data ?? []) as SectionRow[]
-  const map = new Map<string, DocumentSummary>()
+  const demo = new Map<string, DocumentSummary>()
+  const mine = new Map<string, DocumentSummary>()
 
   for (const row of rows) {
-    const current = map.get(row.file_name)
+    if (row.session_id !== null && row.session_id !== currentSessionId) continue
+
+    const bucket = row.session_id === null ? demo : mine
+    const current = bucket.get(row.file_name)
     if (!current) {
-      map.set(row.file_name, {
+      bucket.set(row.file_name, {
         fileName: row.file_name,
         sections: 1,
         lastIngested: row.created_at ?? '',
@@ -89,10 +119,16 @@ export async function listDocuments(): Promise<DocumentSummary[]> {
     }
   }
 
-  return [...map.values()].sort((a, b) => b.lastIngested.localeCompare(a.lastIngested))
+  const sortDesc = (a: DocumentSummary, b: DocumentSummary) => b.lastIngested.localeCompare(a.lastIngested)
+  return { demo: [...demo.values()].sort(sortDesc), mine: [...mine.values()].sort(sortDesc) }
 }
 
-export async function ingestPdf(buffer: Buffer, fileName: string): Promise<IngestResult> {
+export async function ingestPdf(
+  buffer: Buffer,
+  fileName: string,
+  sessionId: string | null,
+  chunkBudget: number | null
+): Promise<IngestResult> {
   const { text, pages } = await extractPdf(buffer)
   const clean = normalizeText(text)
 
@@ -113,11 +149,19 @@ export async function ingestPdf(buffer: Buffer, fileName: string): Promise<Inges
     throw new HttpError(422, 'No se pudieron generar secciones a partir del contenido del PDF.')
   }
 
+  if (chunkBudget !== null && chunks.length > chunkBudget) {
+    throw new HttpError(
+      400,
+      `Este documento genera ${chunks.length} secciones y solo te quedan ${chunkBudget} disponibles en la sesión (límite de ${MAX_CHUNKS_PER_SESSION}). Prueba con un PDF más pequeño.`
+    )
+  }
+
   const embeddings = await embedTexts(chunks, 'RETRIEVAL_DOCUMENT')
   const rows = chunks.map((content, i) => ({
     file_name: fileName,
     content,
     embedding: embeddings[i],
+    session_id: sessionId,
   }))
 
   for (let i = 0; i < rows.length; i += INSERT_BATCH_SIZE) {

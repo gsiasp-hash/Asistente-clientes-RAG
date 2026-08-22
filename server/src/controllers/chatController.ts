@@ -9,6 +9,9 @@ import {
   buildPrompt,
   streamAnswer,
 } from '../services/chatService.js'
+import { isAdmin } from '../middleware/session.js'
+import { checkAndIncrement } from '../utils/rateLimiter.js'
+import { env } from '../config/env.js'
 import { initSse, sendSse } from '../utils/sse.js'
 import { HttpError } from '../utils/errors.js'
 
@@ -21,17 +24,25 @@ export async function chat(req: Request, res: Response): Promise<void> {
     typeof req.body?.conversationId === 'string' && req.body.conversationId.trim() !== ''
       ? req.body.conversationId.trim()
       : undefined
+  const sessionId = req.sessionId!
 
   if (!message) throw new HttpError(400, 'El campo "message" es obligatorio.')
   if (message.length > MAX_MESSAGE_LENGTH) {
     throw new HttpError(400, `El mensaje no puede superar ${MAX_MESSAGE_LENGTH} caracteres.`)
   }
+  if (!isAdmin(req)) {
+    checkAndIncrement(
+      `msg:${sessionId}`,
+      env.sessionMessageLimit,
+      `Alcanzaste el límite de ${env.sessionMessageLimit} mensajes por día. La demostración se reinicia mañana.`
+    )
+  }
 
-  const conversationId = await initConversation(conversationIdInput)
+  const conversationId = await initConversation(conversationIdInput, sessionId)
   const history = await loadHistory(conversationId)
   await persistUserMessage(conversationId, message)
 
-  const context = await retrieveContext(message)
+  const context = await retrieveContext(message, sessionId)
   const prompt = buildPrompt(history, context, message)
 
   initSse(res)
@@ -87,7 +98,7 @@ export async function getConversationMessages(req: Request, res: Response): Prom
   const conversationId = Array.isArray(param) ? param[0] : param
   if (!conversationId) throw new HttpError(400, 'Falta el id de la conversación en la ruta.')
 
-  await initConversation(conversationId)
+  await initConversation(conversationId, req.sessionId!)
   const messages = await loadFullConversation(conversationId)
 
   res.json({ conversationId, messages })

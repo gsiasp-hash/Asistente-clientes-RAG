@@ -6,7 +6,6 @@ import { HttpError } from '../utils/errors.js'
 
 const HISTORY_LIMIT = 10
 const MATCH_COUNT = 3
-const DEFAULT_THRESHOLD = 0.4
 const MAX_ANSWER_TOKENS = 1024
 
 export interface RetrievedChunk {
@@ -32,12 +31,7 @@ Reglas estrictas:
 - Nunca uses conocimiento general externo ni inventes datos.
 - Responde en el idioma del usuario, con tono cordial, claro y directo.`
 
-function matchThreshold(): number {
-  const value = Number(process.env.RAG_MATCH_THRESHOLD)
-  return Number.isFinite(value) && value > 0 ? value : DEFAULT_THRESHOLD
-}
-
-export async function initConversation(conversationId?: string): Promise<string> {
+export async function initConversation(conversationId: string | undefined, sessionId: string): Promise<string> {
   if (conversationId) {
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
     if (!uuidPattern.test(conversationId)) {
@@ -45,14 +39,20 @@ export async function initConversation(conversationId?: string): Promise<string>
     }
     const { data, error } = await supabase
       .from('conversations')
-      .select('id')
+      .select('id, session_id')
       .eq('id', conversationId)
       .single()
-    if (error || !data) throw new HttpError(404, 'La conversación indicada no existe.')
+    if (error || !data || data.session_id !== sessionId) {
+      throw new HttpError(404, 'La conversación indicada no existe.')
+    }
     return conversationId
   }
 
-  const { data, error } = await supabase.from('conversations').insert({}).select('id').single()
+  const { data, error } = await supabase
+    .from('conversations')
+    .insert({ session_id: sessionId })
+    .select('id')
+    .single()
   if (error || !data) {
     throw new Error(`Supabase al crear conversación: ${error?.message ?? 'sin datos'}`)
   }
@@ -122,14 +122,15 @@ export async function persistAssistantMessage(
   if (error) throw new Error(`Supabase al guardar respuesta: ${error.message}`)
 }
 
-export async function retrieveContext(question: string): Promise<RetrievedChunk[]> {
+export async function retrieveContext(question: string, sessionId: string): Promise<RetrievedChunk[]> {
   const [embedding] = await embedTexts([question], 'RETRIEVAL_QUERY')
   if (!embedding) return []
 
   const { data, error } = await supabase.rpc('match_document_sections', {
     query_embedding: embedding,
-    match_threshold: matchThreshold(),
+    match_threshold: env.matchThreshold,
     match_count: MATCH_COUNT,
+    p_session_id: sessionId,
   })
   if (error) throw new Error(`Supabase RPC de búsqueda: ${error.message}`)
 

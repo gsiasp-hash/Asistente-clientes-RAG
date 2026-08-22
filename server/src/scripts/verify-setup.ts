@@ -43,6 +43,7 @@ async function checkSupabase(embedding: number[]): Promise<CheckResult> {
       query_embedding: embedding,
       match_threshold: 0,
       match_count: 1,
+      p_session_id: null,
     })
     if (rpcError) {
       return { name: 'Supabase', ok: false, detail: `RPC: ${rpcError.message}` }

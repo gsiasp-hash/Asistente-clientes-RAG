@@ -10,12 +10,22 @@ function getRequired(key: RequiredKey): string {
   return value
 }
 
+function num(value: string | undefined, fallback: number): number {
+  const parsed = Number(value)
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
+}
+
 export const env = {
-  port: Number(process.env.PORT ?? 5000),
+  port: num(process.env.PORT, 5000),
   groqApiKey: getRequired('GROQ_API_KEY'),
   geminiApiKey: getRequired('GEMINI_API_KEY'),
   supabaseUrl: getRequired('SUPABASE_URL'),
   supabaseServiceKey: getRequired('SUPABASE_SERVICE_KEY'),
   embeddingModel: process.env.EMBEDDING_MODEL ?? 'gemini-embedding-001',
   llmModel: process.env.LLM_MODEL ?? 'openai/gpt-oss-120b',
+  matchThreshold: num(process.env.RAG_MATCH_THRESHOLD, 0.4),
+  adminToken: process.env.ADMIN_TOKEN ?? '',
+  sessionTtlHours: num(process.env.SESSION_TTL_HOURS, 1),
+  dailyUploadLimit: num(process.env.DAILY_UPLOAD_LIMIT, 50),
+  sessionMessageLimit: num(process.env.SESSION_MESSAGE_LIMIT, 15),
 }
