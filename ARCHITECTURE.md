@@ -31,7 +31,7 @@ El flujo de información se divide en dos procesos principales: **Ingesta de Doc
                                                              ▼
   ┌──────────────┐                                      ┌─────────────────────────┐
   │  Respuesta   │ <─────────────────────────────────── │ Groq Cloud API          │
-  │  Streaming   │    Server-Sent Events (SSE)          │ (Llama 3.3 70B)         │
+  │  Streaming   │    Server-Sent Events (SSE)          │ (gpt-oss-120b)          │
   └──────────────┘                                      └─────────────────────────┘
 ```
 
@@ -44,8 +44,8 @@ El flujo de información se divide en dos procesos principales: **Ingesta de Doc
 | **Frontend** | React (Vite / Next.js) + Tailwind CSS | Hosting gratis en Vercel |
 | **Backend** | Node.js (Express) | Hosting gratis en Render / Railway |
 | **Vector Database** | Supabase (PostgreSQL + `pgvector`) | Free Tier (Hasta 500 MB) |
-| **Embeddings Model** | Google Gemini (`text-embedding-004`) | AI Studio API (Gratis) |
-| **Inference LLM** | Groq Cloud (`llama-3.3-70b-versatile`) | Groq Console (Gratis) |
+| **Embeddings Model** | Google Gemini (`gemini-embedding-001`, salida a 768 dims) | AI Studio API (Gratis) |
+| **Inference LLM** | Groq Cloud (`openai/gpt-oss-120b`) | Groq Console (Gratis) |
 | **Procesamiento PDF** | `pdf-parse` + LangChain Text Splitter | NPM Packages |
 
 ---
@@ -63,7 +63,7 @@ CREATE TABLE IF NOT EXISTS document_sections (
   id BIGSERIAL PRIMARY KEY,
   file_name TEXT NOT NULL,
   content TEXT NOT NULL,
-  embedding VECTOR(768), -- Dimensiones del modelo text-embedding-004
+  embedding VECTOR(768), -- Dimensiones de salida de gemini-embedding-001
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -156,17 +156,17 @@ SUPABASE_SERVICE_KEY=tu_supabase_service_role_key
 
 ## 🚦 Roadmap de Desarrollo
 
-- [ ] **Fase 1: Configuración de Infraestructura**
-  - [ ] Crear proyectos en Supabase, Groq Console y Google AI Studio.
-  - [ ] Ejecutar script de base de datos vectorial en Supabase.
-- [ ] **Fase 2: Pipeline de Ingesta (Backend)**
-  - [ ] Endpoint `/api/documents/upload` para recibir PDF.
-  - [ ] Extracción de texto y chunking (`chunkSize: 500`, `chunkOverlap: 50`).
-  - [ ] Generación de embeddings con Gemini y guardado en Supabase.
-- [ ] **Fase 3: Pipeline RAG & Streaming (Backend)**
-  - [ ] Generar embedding de la consulta del usuario.
-  - [ ] Consulta RPC a Supabase para recuperar Top 3 chunks.
-  - [ ] Generación de respuesta con Groq (`llama-3.3-70b-versatile`) vía Server-Sent Events (SSE).
+- [x] **Fase 1: Configuración de Infraestructura**
+  - [x] Crear proyectos en Supabase, Groq Console y Google AI Studio.
+  - [x] Ejecutar script de base de datos vectorial en Supabase.
+- [x] **Fase 2: Pipeline de Ingesta (Backend)**
+  - [x] Endpoint `/api/documents/upload` para recibir PDF (con flujo de duplicados: 409 + `replace=true`).
+  - [x] Extracción de texto y chunking (`chunkSize: 500`, `chunkOverlap: 50`).
+  - [x] Generación de embeddings con Gemini y guardado en Supabase.
+- [x] **Fase 3: Pipeline RAG & Streaming (Backend)**
+  - [x] Generar embedding de la consulta del usuario.
+  - [x] Consulta RPC a Supabase para recuperar Top 3 chunks.
+  - [x] Generación de respuesta con Groq vía Server-Sent Events (SSE), con memoria conversacional (10 mensajes) y rechazo honesto ante preguntas fuera de alcance.
 - [ ] **Fase 4: Interfaz de Usuario (Frontend)**
   - [ ] Componente de carga de PDF con barra de progreso.
   - [ ] Componente de Chat con renderizado progresivo del texto.
