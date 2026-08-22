@@ -2,6 +2,7 @@ import 'dotenv/config'
 import express from 'express'
 import cors from 'cors'
 import { documentsRouter } from './routes/documentRoutes.js'
+import { chatRouter } from './routes/chatRoutes.js'
 import { errorHandler } from './middleware/errorHandler.js'
 
 const app = express()
@@ -18,6 +19,7 @@ app.get('/api/health', (_req, res) => {
 })
 
 app.use('/api/documents', documentsRouter)
+app.use('/api', chatRouter)
 
 app.use(errorHandler)
 
