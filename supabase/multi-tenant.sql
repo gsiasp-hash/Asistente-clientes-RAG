@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS sessions (
   session_id TEXT PRIMARY KEY,
   last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
+ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
 
 -- 3. RPC de búsqueda con filtro de visibilidad (globales + propios)
 CREATE OR REPLACE FUNCTION match_document_sections (
