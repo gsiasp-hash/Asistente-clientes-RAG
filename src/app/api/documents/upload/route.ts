@@ -8,6 +8,7 @@ import {
 } from '@/server/pdfService'
 import { requireSession, isAdmin } from '@/server/session'
 import { checkAndIncrement } from '@/server/rateLimiter'
+import { assertAllowedOrigin } from '@/server/originGuard'
 import { env } from '@/server/env'
 import { HttpError, jsonError } from '@/server/errors'
 
@@ -25,6 +26,7 @@ function sanitizeFileName(raw: string): string {
 
 export async function POST(request: Request): Promise<Response> {
   try {
+    assertAllowedOrigin(request)
     const admin = isAdmin(request)
     const sessionId = await requireSession(request)
     const scope = admin ? null : sessionId

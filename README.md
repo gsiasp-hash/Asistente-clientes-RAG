@@ -119,6 +119,11 @@ Prueba las credenciales contra los tres servicios (embeddings, RPC de búsqueda 
 | `SESSION_MAX_AGE_HOURS` | `24` | Vida máxima absoluta de una sesión, activa o no (anti-acumulación) |
 | `DAILY_UPLOAD_LIMIT` | `50` | Tope diario global de subidas (anti-abuso) |
 | `SESSION_MESSAGE_LIMIT` | `15` | Mensajes de chat por sesión y día |
+| `GLOBAL_DAILY_MESSAGE_LIMIT` | `200` | Tope diario global de mensajes de chat en todas las sesiones (freno económico contra abuso scriptado) |
+| `ALLOWED_ORIGINS` | vercel.app del proyecto + localhost | Orígenes legítimos separados por coma; peticiones con header `Origin` fuera de la lista → 403 |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | vacío | Site key pública de Cloudflare Turnstile; si está vacía no se muestra el widget |
+| `TURNSTILE_SECRET_KEY` | vacío | Clave secreta de siteverify; si está vacía el servidor omite la verificación (útil en local) |
+| `TURNSTILE_HOSTNAMES` | `localhost,127.0.0.1` | Hostnames válidos que debe devolver siteverify (en producción NO incluyas localhost) |
 
 ---
 
@@ -180,6 +185,22 @@ Pensado para que cualquier visitante pueda probar la app sin contaminar la base 
 - Los errores de límite responden con mensajes amigables en español (HTTP 400/429)
 
 La seguridad de acceso directo a la base está cubierta con RLS activado y sin políticas públicas: solo el backend con `service_role` lee y escribe.
+
+## Blindaje anti-abuso del chat público
+
+El repo es público y la API está documentada: cualquier puede intentar consumirla. Varias capas independientes acotan el daño sobre las cuotas gratuitas de Groq/Gemini:
+
+| Capa | Qué bloquea |
+| :--- | :--- |
+| `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` | Incrustar la app en un iframe de otro sitio (cada visitante del ladrón gastaría tu cuota) |
+| Allowlist `ALLOWED_ORIGINS` (403 si el `Origin` no coincide) | Frontends clonados apuntando a tu API desde otros dominios |
+| `GLOBAL_DAILY_MESSAGE_LIMIT` contado en BD (persistente, sobrevive deploys) | Abuso scriptado masivo: es el freno económico definitivo; al agotarse responde 429 hasta el día siguiente |
+| Cloudflare Turnstile (`TURNSTILE_SECRET_KEY`) | Bots que falsifiquen sesiones; siteverify server-side fail-closed valida token, acción y hostname. Tokens de un solo uso con reset del widget tras cada envío |
+| Límites por sesión + limpieza perezosa TTL | Sesiones individuales descontroladas y acumulación de recursos |
+
+**Recomendación extra**: configura además cuotas duras en los proveedores — límite diario de requests del modelo de embeddings en [Google AI Studio](https://aistudio.google.com) y revisa el uso en [console.groq.com](https://console.groq.com). Si sufres un ataque puntual, activa Attack Challenge Mode en el firewall de Vercel.
+
+Nota aceptada: los contadores por sesión viven en memoria (se reinician con cada deploy), pero el tope global diario vive en Postgres y no se puede esquivar reiniciando nada.
 
 ## Cómo funciona (pipeline)
 

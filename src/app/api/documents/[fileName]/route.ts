@@ -1,5 +1,6 @@
 import { deleteSections } from '@/server/pdfService'
 import { requireSession, isAdmin } from '@/server/session'
+import { assertAllowedOrigin } from '@/server/originGuard'
 import { HttpError, jsonError } from '@/server/errors'
 
 export const runtime = 'nodejs'
@@ -10,6 +11,7 @@ export async function DELETE(
   { params }: { params: Promise<{ fileName: string }> }
 ): Promise<Response> {
   try {
+    assertAllowedOrigin(request)
     await requireSession(request)
 
     const { fileName: raw } = await params

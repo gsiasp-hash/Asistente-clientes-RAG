@@ -153,6 +153,7 @@ export async function fetchHistory(conversationId: string): Promise<HistoryMessa
 interface StreamChatParams {
   conversationId?: string | null
   message: string
+  turnstileToken?: string
   signal: AbortSignal
   onMeta?: (conversationId: string) => void
   onDelta?: (text: string) => void
@@ -168,6 +169,7 @@ export async function streamChat(params: StreamChatParams): Promise<void> {
     body: JSON.stringify({
       conversationId: params.conversationId ?? undefined,
       message: params.message,
+      turnstileToken: params.turnstileToken || undefined,
     }),
   })
   if (!res.ok) await fail(res)

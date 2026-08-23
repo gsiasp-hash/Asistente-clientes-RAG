@@ -87,6 +87,18 @@ Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server
 - La limpieza perezosa (`session.ts` → `cleanupService.ts`) purga sesiones con throttling de 10 min al validar sesiones (patrón serverless: no hay proceso persistente). Doble criterio: inactivas > `SESSION_TTL_HOURS` **o** con vida > `SESSION_MAX_AGE_HOURS` aunque sigan activas (timeout absoluto anti-acumulación de recursos; requiere `sessions.created_at`, ya incluida en `schema.sql`)
 - La RPC de búsqueda SIEMPRE recibe `p_session_id`; `initConversation` valida ownership (404 si no es tuya)
 
+## Blindaje anti-abuso (no retirar sin entender el impacto)
+
+El repo es público y la API está documentada en el README: asume que cualquiera puede llamarla. Capas independientes:
+
+1. **Anti-iframe** (`next.config.ts`): `X-Frame-Options: DENY` + CSP `frame-ancestors 'none'` en todas las rutas
+2. **Allowlist de orígenes** (`src/server/originGuard.ts`, env `ALLOWED_ORIGINS`): si la petición trae header `Origin` y no está en la lista → 403. Sin `Origin` (curl, server-to-server) pasa a propósito: el freno real es la capa 3
+3. **Límite global diario persistido** (`src/server/globalBudget.ts`, env `GLOBAL_DAILY_MESSAGE_LIMIT=200`): conteo head-only de `messages` del día en Postgres antes de cada llamada IA → 429 amigable. Requiere el índice `idx_messages_created_at` (migración `supabase/migrations/002`). Race condition benigna aceptada (mismo patrón que el presupuesto de chunks)
+4. **Turnstile** (`src/server/turnstile.ts` + `src/components/TurnstileWidget.tsx`): siteverify fail-closed valida `success`, `action==='chat'` y hostname ∈ `TURNSTILE_HOSTNAMES`. Si `TURNSTILE_SECRET_KEY` está vacía se omite (dev local). Tokens de un solo uso: `ChatWindow` resetea el widget tras cada envío vía `resetSignal`
+5. **Cuotas externas**: recomendar al dueño configurar límites diarios en Google AI Studio / Groq y Attack Challenge Mode en Vercel
+
+Al añadir una ruta nueva que consuma IA o cuota: llamar `assertAllowedOrigin(request)` al inicio y registrar contador en `rateLimiter`; si consume chat, respetar también `assertGlobalDailyBudget`.
+
 ## Convenciones del proyecto
 
 1. Todo el copy visible de la interfaz y los mensajes de error van en **español**

@@ -15,6 +15,14 @@ function num(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+function list(value: string | undefined, fallback: string[]): string[] {
+  const items = (value ?? '')
+    .split(',')
+    .map((item) => item.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+  return items.length > 0 ? items : fallback
+}
+
 export const env = {
   get groqApiKey() {
     return getRequired('GROQ_API_KEY')
@@ -51,5 +59,20 @@ export const env = {
   },
   get sessionMessageLimit() {
     return num(process.env.SESSION_MESSAGE_LIMIT, 15)
+  },
+  get globalDailyMessageLimit() {
+    return num(process.env.GLOBAL_DAILY_MESSAGE_LIMIT, 200)
+  },
+  get allowedOrigins() {
+    return list(process.env.ALLOWED_ORIGINS, [
+      'https://asistente-rag-plum.vercel.app',
+      'http://localhost:3000',
+    ])
+  },
+  get turnstileSecretKey() {
+    return process.env.TURNSTILE_SECRET_KEY ?? ''
+  },
+  get turnstileHostnames() {
+    return list(process.env.TURNSTILE_HOSTNAMES, ['localhost', '127.0.0.1'])
   },
 }

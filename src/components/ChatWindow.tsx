@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState } from 'react'
 import type { KeyboardEvent } from 'react'
 import { MessageBubble } from './MessageBubble'
+import { TurnstileWidget } from './TurnstileWidget'
 import type { ChatMessage } from '../types'
 
 interface ChatWindowProps {
   messages: ChatMessage[]
   isStreaming: boolean
   error: string | null
-  onSend: (text: string) => void
+  onSend: (text: string, turnstileToken: string) => void
   onStop: () => void
   onNewChat: () => void
 }
@@ -17,10 +18,17 @@ const EXAMPLE_QUESTIONS = [
   '¿Qué información puedes encontrarme?',
 ]
 
+const TURNSTILE_SITE_KEY = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY ?? ''
+
 export function ChatWindow({ messages, isStreaming, error, onSend, onStop, onNewChat }: ChatWindowProps) {
   const [input, setInput] = useState('')
+  const [turnstileToken, setTurnstileToken] = useState('')
+  const [turnstileResetSignal, setTurnstileResetSignal] = useState(0)
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottomRef = useRef(true)
+
+  const turnstileRequired = TURNSTILE_SITE_KEY !== ''
+  const canSubmit = input.trim() !== '' && !isStreaming && (!turnstileRequired || turnstileToken !== '')
 
   useEffect(() => {
     if (stickToBottomRef.current) {
@@ -37,8 +45,20 @@ export function ChatWindow({ messages, isStreaming, error, onSend, onStop, onNew
   function submit() {
     const text = input.trim()
     if (!text || isStreaming) return
-    onSend(text)
+    if (turnstileRequired && turnstileToken === '') return
+    onSend(text, turnstileToken)
     setInput('')
+    setTurnstileToken('')
+    setTurnstileResetSignal((signal) => signal + 1)
+    stickToBottomRef.current = true
+  }
+
+  function sendExample(question: string) {
+    if (isStreaming) return
+    if (turnstileRequired && turnstileToken === '') return
+    onSend(question, turnstileToken)
+    setTurnstileToken('')
+    setTurnstileResetSignal((signal) => signal + 1)
     stickToBottomRef.current = true
   }
 
@@ -76,8 +96,9 @@ export function ChatWindow({ messages, isStreaming, error, onSend, onStop, onNew
                 <button
                   key={question}
                   type="button"
-                  onClick={() => onSend(question)}
-                  className="rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50"
+                  onClick={() => sendExample(question)}
+                  disabled={turnstileRequired && turnstileToken === ''}
+                  className="rounded-full border border-indigo-200 bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 transition-colors hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-40"
                 >
                   {question}
                 </button>
@@ -103,6 +124,15 @@ export function ChatWindow({ messages, isStreaming, error, onSend, onStop, onNew
       )}
 
       <div className="border-t border-slate-200 bg-white p-3">
+        {turnstileRequired && (
+          <div className="mb-2">
+            <TurnstileWidget
+              siteKey={TURNSTILE_SITE_KEY}
+              onTokenChange={setTurnstileToken}
+              resetSignal={turnstileResetSignal}
+            />
+          </div>
+        )}
         <div className="flex items-end gap-2">
           <textarea
             value={input}
@@ -125,7 +155,7 @@ export function ChatWindow({ messages, isStreaming, error, onSend, onStop, onNew
             <button
               type="button"
               onClick={submit}
-              disabled={!input.trim()}
+              disabled={!canSubmit}
               className="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
             >
               Enviar

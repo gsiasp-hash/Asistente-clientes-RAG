@@ -40,7 +40,7 @@ export function useChatStream() {
   }, [])
 
   const send = useCallback(
-    (text: string) => {
+    (text: string, turnstileToken = '') => {
       const trimmed = text.trim()
       if (!trimmed || isStreaming) return
 
@@ -54,6 +54,7 @@ export function useChatStream() {
       streamChat({
         conversationId: conversationRef.current,
         message: trimmed,
+        turnstileToken,
         signal: controller.signal,
         onMeta: (id) => {
           conversationRef.current = id

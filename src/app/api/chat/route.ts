@@ -11,6 +11,9 @@ import {
 } from '@/server/chatService'
 import { requireSession, isAdmin } from '@/server/session'
 import { checkAndIncrement } from '@/server/rateLimiter'
+import { assertAllowedOrigin } from '@/server/originGuard'
+import { verifyTurnstile } from '@/server/turnstile'
+import { assertGlobalDailyBudget } from '@/server/globalBudget'
 import { env } from '@/server/env'
 import { HttpError, jsonError } from '@/server/errors'
 
@@ -47,6 +50,7 @@ interface PreparedChat {
 }
 
 async function prepare(request: Request): Promise<PreparedChat> {
+  assertAllowedOrigin(request)
   const sessionId = await requireSession(request)
 
   let body: unknown
@@ -55,7 +59,11 @@ async function prepare(request: Request): Promise<PreparedChat> {
   } catch {
     throw new HttpError(400, 'El cuerpo de la petición debe ser JSON.')
   }
-  const payload = (body ?? {}) as { message?: unknown; conversationId?: unknown }
+  const payload = (body ?? {}) as {
+    message?: unknown
+    conversationId?: unknown
+    turnstileToken?: unknown
+  }
 
   const rawMessage = payload.message
   const message = typeof rawMessage === 'string' ? rawMessage.trim() : ''
@@ -68,12 +76,16 @@ async function prepare(request: Request): Promise<PreparedChat> {
   if (message.length > MAX_MESSAGE_LENGTH) {
     throw new HttpError(400, `El mensaje no puede superar ${MAX_MESSAGE_LENGTH} caracteres.`)
   }
-  if (!isAdmin(request)) {
+  await verifyTurnstile(payload.turnstileToken, request)
+  const admin = isAdmin(request)
+
+  if (!admin) {
     checkAndIncrement(
       `msg:${sessionId}`,
       env.sessionMessageLimit,
       `Alcanzaste el límite de ${env.sessionMessageLimit} mensajes por día. La demostración se reinicia mañana.`
     )
+    await assertGlobalDailyBudget()
   }
 
   const conversationId = await initConversation(conversationIdInput, sessionId)

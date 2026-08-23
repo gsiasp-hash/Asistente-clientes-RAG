@@ -89,6 +89,9 @@ CREATE TABLE IF NOT EXISTS messages (
 CREATE INDEX IF NOT EXISTS idx_messages_conversation
   ON messages (conversation_id, created_at);
 
+CREATE INDEX IF NOT EXISTS idx_messages_created_at
+  ON messages (created_at);
+
 -- ============================================================
 -- SEGURIDAD: el backend accede con service_role (bypass RLS).
 -- RLS activo sin políticas públicas: nadie accede directo

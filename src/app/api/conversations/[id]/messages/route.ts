@@ -1,5 +1,6 @@
 import { initConversation, loadFullConversation } from '@/server/chatService'
 import { requireSession } from '@/server/session'
+import { assertAllowedOrigin } from '@/server/originGuard'
 import { HttpError, jsonError } from '@/server/errors'
 
 export const runtime = 'nodejs'
@@ -10,6 +11,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ): Promise<Response> {
   try {
+    assertAllowedOrigin(request)
     const sessionId = await requireSession(request)
 
     const { id: raw } = await params
