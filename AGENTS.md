@@ -100,6 +100,8 @@ Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server
 | El modelo "razona" en vez de responder | gpt-oss emite reasoning | Mantener `reasoning_format: 'hidden'` en la llamada a Groq |
 | `pdf-parse` crashea en Next con error de worker | El bundler rompe `pdf.worker.mjs` de pdf.js | Mantener `pdf-parse` y `pdfjs-dist` en `serverExternalPackages` |
 | `pdf-parse` falla al usarlo | API v1 vieja | v2 usa clase: `new PDFParse({ data })` → `getText()` → siempre `destroy()` en `finally` |
+| Upload de PDF corrupto colgaba o daba 500 feo | pdf.js entra en bucle con xref malformado y lanza excepciones sin clasificar | `extractPdf` corre contra timeout de 15s (`Promise.race`) y clasifica errores a 422 amigables (contraseña vs dañado); `destroy()` también tiene tope de 3s |
+| Token crasheaba en contextos inseguros o storage bloqueado | `crypto.randomUUID` exige contexto seguro (https/localhost) y el getter de `localStorage` puede lanzar | `api.ts` envuelve storage en try/catch con fallback a token en memoria y generador alfanumérico propio |
 | 400 en cualquier endpoint desde curl | Falta header de sesión | Agregar `-H "X-Session-Token: <8-64 chars alfanum>"` |
 | Scripts de `scripts/` no ven `.env` | Falta dotenv | Ya importan `dotenv/config`; ejecutarlos vía `npm run verify` / `npm run audit` |
 | Respuestas 429 inesperadas en pruebas | Contadores diarios activos | Reiniciar el server los vacía (memoria) o ajustar env |
@@ -110,3 +112,4 @@ Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server
 - **"Agrega un endpoint"**: crear `src/app/api/<ruta>/route.ts` delgado (validación + `HttpError` + `jsonError`) apoyado en un service de `src/server/`; declarar `runtime='nodejs'` si usa SDK/PDF; registrar contador de rate-limit si consume cuota de IA
 - **"Cambie las claves/modelos"**: actualizar `.env` (o las Environment Variables de Vercel) y correr `npm run verify`
 - **"La BD está vacía/rara"**: re-ejecutar `supabase/schema.sql` es destructivo solo si borras datos; preferir migraciones incrementales como archivos SQL nuevos versionados
+- Limitaciones aceptadas (documentadas, no bugs): subidas concurrentes de la misma sesión pueden exceder transitoriamente el presupuesto de chunks (sin unique index en `session_id, file_name`); los contadores de rate-limit viven en memoria y se reinician con cada deploy; un PDF con contenido adversarial podría intentar inyección de prompt en su propia sesión (el contexto no contiene secretos)

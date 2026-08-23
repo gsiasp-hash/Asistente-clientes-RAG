@@ -23,29 +23,65 @@ export class UploadConflictError extends ApiError {
   }
 }
 
+let memoryToken: string | null = null
+
 function storage(): Storage | null {
-  return typeof window === 'undefined' ? null : window.localStorage
+  if (typeof window === 'undefined') return null
+  try {
+    return window.localStorage
+  } catch {
+    return null
+  }
 }
 
-export function getSessionToken(): string {
-  let token = storage()?.getItem(SESSION_KEY) ?? null
-  if (!token || !/^[A-Za-z0-9_-]{8,64}$/.test(token)) {
-    token = crypto.randomUUID()
-    storage()?.setItem(SESSION_KEY, token)
+function readItem(key: string): string | null {
+  try {
+    return storage()?.getItem(key) ?? null
+  } catch {
+    return null
+  }
+}
+
+function writeItem(key: string, value: string): void {
+  try {
+    storage()?.setItem(key, value)
+  } catch {}
+}
+
+function randomToken(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  let token = ''
+  for (let i = 0; i < 32; i += 1) {
+    token += alphabet[Math.floor(Math.random() * alphabet.length)]
   }
   return token
 }
 
+export function getSessionToken(): string {
+  const stored = readItem(SESSION_KEY)
+  if (stored && /^[A-Za-z0-9_-]{8,64}$/.test(stored)) return stored
+
+  const token = memoryToken ?? randomToken()
+  memoryToken = token
+  writeItem(SESSION_KEY, token)
+  return token
+}
+
 export function getStoredConversationId(): string | null {
-  return storage()?.getItem(CONVERSATION_KEY) ?? null
+  return readItem(CONVERSATION_KEY)
 }
 
 export function storeConversationId(id: string): void {
-  storage()?.setItem(CONVERSATION_KEY, id)
+  writeItem(CONVERSATION_KEY, id)
 }
 
 export function clearStoredConversationId(): void {
-  storage()?.removeItem(CONVERSATION_KEY)
+  try {
+    storage()?.removeItem(CONVERSATION_KEY)
+  } catch {}
 }
 
 function authHeaders(json = false): HeadersInit {

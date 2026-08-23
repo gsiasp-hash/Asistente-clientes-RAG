@@ -7,6 +7,8 @@ import { HttpError } from './errors'
 const CHUNK_SIZE = 500
 const CHUNK_OVERLAP = 50
 const INSERT_BATCH_SIZE = 200
+const PARSE_TIMEOUT_MS = 15_000
+const DESTROY_TIMEOUT_MS = 3_000
 export const MAX_DOCS_PER_SESSION = 5
 export const MAX_CHUNKS_PER_SESSION = 300
 
@@ -45,13 +47,38 @@ function normalizeText(text: string): string {
     .trim()
 }
 
+function pdfFriendlyError(err: unknown): HttpError {
+  const name = err instanceof Error ? err.name : ''
+  const message = err instanceof Error ? err.message.toLowerCase() : ''
+  if (name === 'PasswordException' || message.includes('password') || message.includes('encript')) {
+    return new HttpError(
+      422,
+      'El PDF está protegido con contraseña. Quita la protección e inténtalo de nuevo.'
+    )
+  }
+  return new HttpError(422, 'El PDF está dañado o no se pudo leer como documento válido.')
+}
+
 async function extractPdf(buffer: Buffer): Promise<{ text: string; pages: number }> {
   const parser = new PDFParse({ data: buffer })
+  let timer: NodeJS.Timeout | undefined
   try {
-    const result = await parser.getText()
+    const timeout = new Promise<never>((_, reject) => {
+      timer = setTimeout(() => {
+        reject(new HttpError(422, 'El PDF tardó demasiado en procesarse. Prueba con un documento más pequeño.'))
+      }, PARSE_TIMEOUT_MS)
+    })
+    const result = await Promise.race([parser.getText(), timeout])
     return { text: result.text, pages: result.total }
+  } catch (err) {
+    if (err instanceof HttpError) throw err
+    throw pdfFriendlyError(err)
   } finally {
-    await parser.destroy()
+    clearTimeout(timer)
+    await Promise.race([
+      parser.destroy().catch(() => {}),
+      new Promise((resolve) => setTimeout(resolve, DESTROY_TIMEOUT_MS)),
+    ])
   }
 }
 
