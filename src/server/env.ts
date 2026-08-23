@@ -16,16 +16,40 @@ function num(value: string | undefined, fallback: number): number {
 }
 
 export const env = {
-  groqApiKey: getRequired('GROQ_API_KEY'),
-  geminiApiKey: getRequired('GEMINI_API_KEY'),
-  supabaseUrl: getRequired('SUPABASE_URL'),
-  supabaseServiceKey: getRequired('SUPABASE_SERVICE_KEY'),
-  embeddingModel: process.env.EMBEDDING_MODEL ?? 'gemini-embedding-001',
-  llmModel: process.env.LLM_MODEL ?? 'openai/gpt-oss-120b',
-  matchThreshold: num(process.env.RAG_MATCH_THRESHOLD, 0.4),
-  adminToken: process.env.ADMIN_TOKEN ?? '',
-  sessionTtlHours: num(process.env.SESSION_TTL_HOURS, 1),
-  sessionMaxAgeHours: num(process.env.SESSION_MAX_AGE_HOURS, 24),
-  dailyUploadLimit: num(process.env.DAILY_UPLOAD_LIMIT, 50),
-  sessionMessageLimit: num(process.env.SESSION_MESSAGE_LIMIT, 15),
+  get groqApiKey() {
+    return getRequired('GROQ_API_KEY')
+  },
+  get geminiApiKey() {
+    return getRequired('GEMINI_API_KEY')
+  },
+  get supabaseUrl() {
+    return getRequired('SUPABASE_URL')
+  },
+  get supabaseServiceKey() {
+    return getRequired('SUPABASE_SERVICE_KEY')
+  },
+  get embeddingModel() {
+    return process.env.EMBEDDING_MODEL ?? 'gemini-embedding-001'
+  },
+  get llmModel() {
+    return process.env.LLM_MODEL ?? 'openai/gpt-oss-120b'
+  },
+  get matchThreshold() {
+    return num(process.env.RAG_MATCH_THRESHOLD, 0.4)
+  },
+  get adminToken() {
+    return process.env.ADMIN_TOKEN ?? ''
+  },
+  get sessionTtlHours() {
+    return num(process.env.SESSION_TTL_HOURS, 1)
+  },
+  get sessionMaxAgeHours() {
+    return num(process.env.SESSION_MAX_AGE_HOURS, 24)
+  },
+  get dailyUploadLimit() {
+    return num(process.env.DAILY_UPLOAD_LIMIT, 50)
+  },
+  get sessionMessageLimit() {
+    return num(process.env.SESSION_MESSAGE_LIMIT, 15)
+  },
 }
