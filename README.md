@@ -156,6 +156,21 @@ Subiendo con el header adicional `X-Admin-Token: <ADMIN_TOKEN>`, el documento se
 
 ---
 
+## Prepara tus PDFs para mejores respuestas
+
+El asistente divide cada documento en fragmentos de ~500 caracteres y responde usando solo los 3 más relevantes por pregunta. Para que las respuestas sean precisas:
+
+- **PDF con texto seleccionable**: los escaneados (imágenes) no producen fragmentos
+- **Párrafos autocontenidos**: cada fragmento se lee fuera de contexto — nombra completo el producto/proceso que explicas
+- **Datos clave en prosa**, no solo en tablas (las tablas densas pierden su estructura al extraerse)
+- **Un tema por documento** y datos concretos: números, plazos, pasos numerados
+- **Nombres de archivo descriptivos** y layouts simples de una columna
+- **Cierra con una sección de FAQ**: genera fragmentos que responden directo a preguntas naturales
+
+Guía completa con ejemplos ❌/✅ y checklist: [`demo-docs/guia-preparar-pdfs.md`](demo-docs/guia-preparar-pdfs.md).
+
+---
+
 ## Modelo multi-tenant para portafolio público
 
 Pensado para que cualquier visitante pueda probar la app sin contaminar la base ni agotar cuotas gratuitas:
