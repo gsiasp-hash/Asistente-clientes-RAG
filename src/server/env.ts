@@ -25,6 +25,7 @@ export const env = {
   matchThreshold: num(process.env.RAG_MATCH_THRESHOLD, 0.4),
   adminToken: process.env.ADMIN_TOKEN ?? '',
   sessionTtlHours: num(process.env.SESSION_TTL_HOURS, 1),
+  sessionMaxAgeHours: num(process.env.SESSION_MAX_AGE_HOURS, 24),
   dailyUploadLimit: num(process.env.DAILY_UPLOAD_LIMIT, 50),
   sessionMessageLimit: num(process.env.SESSION_MESSAGE_LIMIT, 15),
 }

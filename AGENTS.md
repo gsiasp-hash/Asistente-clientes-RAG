@@ -79,7 +79,7 @@ Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server
 - `document_sections.session_id` y `conversations.session_id`: `NULL` = documento global de demostración (visible a todos); token = privado del visitante
 - Subir con header `X-Admin-Token` igual a `ADMIN_TOKEN` guarda como global y omite límites
 - Límites: 5 documentos y 300 chunks por sesión, 15 mensajes/sesión/día, 50 subidas/día global (`utils/rateLimiter.ts`, contadores en memoria)
-- La limpieza perezosa (`session.ts` → `cleanupService.ts`) purga sesiones inactivas > `SESSION_TTL_HOURS` con throttling de 10 min al validar sesiones (patrón serverless: no hay proceso persistente)
+- La limpieza perezosa (`session.ts` → `cleanupService.ts`) purga sesiones con throttling de 10 min al validar sesiones (patrón serverless: no hay proceso persistente). Doble criterio: inactivas > `SESSION_TTL_HOURS` **o** con vida > `SESSION_MAX_AGE_HOURS` aunque sigan activas (timeout absoluto anti-acumulación de recursos; requiere `sessions.created_at`, migración 001)
 - La RPC de búsqueda SIEMPRE recibe `p_session_id`; `initConversation` valida ownership (404 si no es tuya)
 
 ## Convenciones del proyecto

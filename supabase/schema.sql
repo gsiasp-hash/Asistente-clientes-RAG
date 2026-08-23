@@ -61,7 +61,8 @@ $$;
 
 CREATE TABLE IF NOT EXISTS sessions (
   session_id TEXT PRIMARY KEY,
-  last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
+  last_seen_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW(),
+  created_at TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT NOW()
 );
 
 -- ============================================================

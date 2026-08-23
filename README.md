@@ -77,6 +77,7 @@ RAG_MATCH_THRESHOLD=0.4
 
 ADMIN_TOKEN=un_token_secreto_para_documentos_globales
 SESSION_TTL_HOURS=1
+SESSION_MAX_AGE_HOURS=24
 DAILY_UPLOAD_LIMIT=50
 SESSION_MESSAGE_LIMIT=15
 ```
@@ -113,6 +114,7 @@ Prueba las credenciales contra los tres servicios (embeddings, RPC de búsqueda 
 | `RAG_MATCH_THRESHOLD` | `0.4` | Similitud mínima (0–1) para considerar un fragmento relevante |
 | `ADMIN_TOKEN` | vacío | Si se define, permite subir documentos globales de demostración |
 | `SESSION_TTL_HOURS` | `1` | Horas de inactividad antes de purgar una sesión |
+| `SESSION_MAX_AGE_HOURS` | `24` | Vida máxima absoluta de una sesión, activa o no (anti-acumulación) |
 | `DAILY_UPLOAD_LIMIT` | `50` | Tope diario global de subidas (anti-abuso) |
 | `SESSION_MESSAGE_LIMIT` | `15` | Mensajes de chat por sesión y día |
 
