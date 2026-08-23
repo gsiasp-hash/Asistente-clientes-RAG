@@ -26,3 +26,5 @@ Thumbs.db
 
 # PDFs de la demo (solo se versionan las fuentes)
 demo-docs/*.pdf
+.vercel
+.env*

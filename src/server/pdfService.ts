@@ -1,8 +1,28 @@
-import { PDFParse } from 'pdf-parse'
+import type { PDFParse } from 'pdf-parse'
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { supabase } from './supabase'
 import { embedTexts } from './gemini'
 import { HttpError } from './errors'
+
+type ParserConstructor = new (options: { data: Buffer }) => PDFParse
+
+let parserConstructor: ParserConstructor | null = null
+
+function polyfillBrowserGlobals(): void {
+  const g = globalThis as Record<string, unknown>
+  g.DOMMatrix ??= class DummyMatrix {}
+  g.Path2D ??= class DummyPath2D {}
+  g.ImageData ??= class DummyImageData {}
+}
+
+async function getParser(): Promise<ParserConstructor> {
+  if (!parserConstructor) {
+    polyfillBrowserGlobals()
+    const mod = await import('pdf-parse')
+    parserConstructor = mod.PDFParse as unknown as ParserConstructor
+  }
+  return parserConstructor
+}
 
 const CHUNK_SIZE = 500
 const CHUNK_OVERLAP = 50
@@ -60,7 +80,8 @@ function pdfFriendlyError(err: unknown): HttpError {
 }
 
 async function extractPdf(buffer: Buffer): Promise<{ text: string; pages: number }> {
-  const parser = new PDFParse({ data: buffer })
+  const Parser = await getParser()
+  const parser = new Parser({ data: buffer })
   let timer: NodeJS.Timeout | undefined
   try {
     const timeout = new Promise<never>((_, reject) => {
