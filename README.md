@@ -6,6 +6,7 @@ Sistema de soporte al cliente inteligente basado en **RAG** (Retrieval-Augmented
 
 - Ingesta de PDFs: extracción de texto, fragmentación inteligente y embeddings semánticos
 - Chat con respuestas en streaming (SSE, token a token)
+- Respuestas en Markdown legibles: tablas GFM con scroll horizontal, listas, enlaces y bloques de código estilizados
 - Memoria conversacional: el asistente recuerda las últimas 10 interacciones de la sesión
 - Rechazo honesto: si la información no está en los documentos, lo dice en vez de inventar
 - Búsqueda vectorial híbrida: documentos globales de demostración + documentos privados por visitante
@@ -18,6 +19,7 @@ Sistema de soporte al cliente inteligente basado en **RAG** (Retrieval-Augmented
 | :--- | :--- |
 | Framework | **Next.js 16** (App Router) · React 19 · TypeScript estricto |
 | Estilos | Tailwind CSS v4 |
+| Renderizado de respuestas | react-markdown + remark-gfm (tablas GFM, listas, código) |
 | API | Route Handlers del propio Next (mismo origen, sin CORS) |
 | Base de datos vectorial | Supabase (PostgreSQL + pgvector) |
 | Embeddings | Google Gemini — `gemini-embedding-001` (768 dimensiones) |
@@ -182,7 +184,7 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 ## Cómo funciona (pipeline)
 
 1. **Ingesta**: PDF → extracción de texto (unpdf) → normalización → fragmentación (500 chars, overlap 50) → embeddings por lotes de 100 con `RETRIEVAL_DOCUMENT` → inserción en `document_sections`
-2. **Consulta**: pregunta → embedding con `RETRIEVAL_QUERY` → RPC `match_document_sections` (top 3, globales + sesión propia) → prompt con reglas anti-alucinación + historial (10 msgs) + contexto recuperado → streaming desde Groq → respuesta persistida con sus fuentes
+2. **Consulta**: pregunta → embedding con `RETRIEVAL_QUERY` → RPC `match_document_sections` (top 3, globales + sesión propia) → prompt con reglas anti-alucinación + formato Markdown + historial (10 msgs) + contexto recuperado → streaming desde Groq → respuesta persistida con sus fuentes y renderizada como Markdown en el cliente (`MarkdownContent`)
 
 ## Estructura del proyecto
 
@@ -202,7 +204,7 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 │   │   ├── pdfService.ts        # Ingesta: parse → split → embeddings → insert
 │   │   ├── chatService.ts       # RAG: retrieve → prompt → stream Groq → persist
 │   │   └── errors/rateLimiter   # HttpError y contadores diarios
-│   ├── components/              # Header, PdfUploader, DocumentList, ChatWindow, MessageBubble
+│   ├── components/              # Header, PdfUploader, DocumentList, ChatWindow, MessageBubble, MarkdownContent
 │   ├── hooks/                   # useDocuments, useChatStream (parser SSE propio)
 │   ├── lib/                     # api.ts (fetch tipado), sse.ts
 │   └── types.ts

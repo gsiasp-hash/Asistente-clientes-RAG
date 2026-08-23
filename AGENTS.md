@@ -66,9 +66,14 @@ Ingesta:   PDF → unpdf (pdf.js serverless) → RecursiveCharacterTextSplitter(
 
 Consulta:  pregunta → embedding (RETRIEVAL_QUERY)
            → RPC match_document_sections(top 3, globales + sesión propia)
-           → prompt anti-alucinación + historial (10 msgs) + contexto
+           → prompt anti-alucinación + formato Markdown + historial (10 msgs) + contexto
            → Groq streaming (reasoning_format hidden) → SSE al cliente
            → respuesta persistida con fuentes en messages.sources
+
+Render:    useChatStream (parser SSE) → ChatWindow → MessageBubble
+           → asistente vía MarkdownContent (react-markdown + remark-gfm):
+             tablas GFM con scroll horizontal, listas y código estilizados;
+             usuario = texto plano; cursor de streaming = carácter ▍ inline
 ```
 
 Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server/*.ts` (services y clientes SDK). La sesión se valida con `requireSession(request)` dentro de cada handler. Configuración centralizada en `src/server/env.ts` con validación fail-fast. Las rutas que tocan IA o PDFs declaran `runtime = 'nodejs'` y `maxDuration = 60`.

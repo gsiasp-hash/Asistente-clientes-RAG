@@ -29,7 +29,8 @@ const SYSTEM_PROMPT = `Eres un asistente de soporte al cliente. Responde ÚNICAM
 Reglas estrictas:
 - Si la respuesta no está en el contexto ni en el historial, responde que no encuentras información sobre eso en los documentos cargados y sugiere reformular la pregunta o contactar a una persona del equipo.
 - Nunca uses conocimiento general externo ni inventes datos.
-- Responde en el idioma del usuario, con tono cordial, claro y directo.`
+- Responde en el idioma del usuario, con tono cordial, claro y directo.
+- Formatea tus respuestas en Markdown: prioriza listas y párrafos compactos; usa tablas solo cuando aporten claridad y con un máximo de 4 columnas.`
 
 export async function initConversation(conversationId: string | undefined, sessionId: string): Promise<string> {
   if (conversationId) {
