@@ -16,8 +16,9 @@ Sistema de soporte al cliente inteligente basado en **RAG** (Retrieval-Augmented
 
 | Capa | Tecnología |
 | :--- | :--- |
-| Frontend | React 19 · TypeScript · Vite · Tailwind CSS v4 |
-| Backend | Node.js (≥20) · Express 5 · TypeScript |
+| Framework | **Next.js 16** (App Router) · React 19 · TypeScript estricto |
+| Estilos | Tailwind CSS v4 |
+| API | Route Handlers del propio Next (mismo origen, sin CORS) |
 | Base de datos vectorial | Supabase (PostgreSQL + pgvector) |
 | Embeddings | Google Gemini — `gemini-embedding-001` (768 dimensiones) |
 | LLM | Groq Cloud — `openai/gpt-oss-120b` |
@@ -29,7 +30,7 @@ Todos los modelos son configurables vía variables de entorno, ya que los provee
 
 ## Arranca el proyecto con un agente de IA
 
-Este repositorio incluye un archivo [`AGENTS.md`](AGENTS.md) con instrucciones paso a paso diseñadas para que **cualquier agente de IA de código** (Claude Code, Cursor, GitHub Copilot, opencode, etc.) ponga el proyecto en funcionamiento por ti: configurar Supabase, obtener las claves de IA, completar el `.env`, instalar dependencias y levantar ambos servidores.
+Este repositorio incluye un archivo [`AGENTS.md`](AGENTS.md) con instrucciones paso a paso diseñadas para que **cualquier agente de IA de código** (Claude Code, Cursor, GitHub Copilot, opencode, etc.) ponga el proyecto en funcionamiento por ti: configurar Supabase, obtener las claves de IA, completar el `.env`, instalar dependencias y levantar la app.
 
 Para usarlo, abre este proyecto con tu agente favorito y dile algo como:
 
@@ -37,7 +38,7 @@ Para usarlo, abre este proyecto con tu agente favorito y dile algo como:
 Lee el archivo AGENTS.md y guíame paso a paso para dejar la app funcionando en local.
 ```
 
-El agente te irá pidiendo lo único que no puede hacer solo: crear tus cuentas gratuita en Supabase/Groq/Google AI Studio y pegar tus credenciales en `server/.env`. Todo lo demás (SQL, instalación, arranque y verificación) lo ejecuta él siguiendo la guía.
+El agente te irá pidiendo lo único que no puede hacer solo: crear tus cuentas gratuita en Supabase/Groq/Google AI Studio y pegar tus credenciales en el `.env` de la raíz. Todo lo demás (SQL, instalación, arranque y verificación) lo ejecuta él siguiendo la guía.
 
 ---
 
@@ -54,18 +55,15 @@ El agente te irá pidiendo lo único que no puede hacer solo: crear tus cuentas 
 - **Groq Cloud** ([console.groq.com](https://console.groq.com)) → API Keys → crea una clave (`gsk_...`)
 - **Google AI Studio** ([aistudio.google.com/apikey](https://aistudio.google.com/apikey)) → Create API key (`AIza...`)
 
-### 3. Configurar el backend
+### 3. Configurar el entorno
 
 ```bash
-cd server
 cp .env.example .env
 ```
 
-Edita `server/.env` con tus valores:
+Edita el `.env` de la raíz con tus valores:
 
 ```env
-PORT=5000
-
 GROQ_API_KEY=tu_groq_api_key
 GEMINI_API_KEY=tu_gemini_api_key
 
@@ -86,19 +84,16 @@ SESSION_MESSAGE_LIMIT=15
 ### 4. Correr en local
 
 ```bash
-# Terminal 1 — backend en http://localhost:5000
-cd server && npm install && npm run dev
-
-# Terminal 2 — frontend en http://localhost:5173
-cd client && npm install && npm run dev
+npm install
+npm run dev        # http://localhost:3000
 ```
 
-El cliente ya tiene un proxy de desarrollo: todas las llamadas a `/api` se redirigen al puerto 5000 sin configurar CORS.
+Frontend y API conviven en la misma app Next.js: sin CORS, sin proxy ni servidores separados.
 
 ### 5. Verificar la instalación (opcional pero recomendado)
 
 ```bash
-cd server && npm run verify
+npm run verify
 ```
 
 Prueba las credenciales contra los tres servicios (embeddings, RPC de búsqueda y catálogo de modelos) sin exponer claves por pantalla.
@@ -109,7 +104,6 @@ Prueba las credenciales contra los tres servicios (embeddings, RPC de búsqueda 
 
 | Variable | Default | Descripción |
 | :--- | :--- | :--- |
-| `PORT` | `5000` | Puerto del backend |
 | `GROQ_API_KEY` | — | Clave de Groq Cloud (requerida) |
 | `GEMINI_API_KEY` | — | Clave de Google AI Studio (requerida) |
 | `SUPABASE_URL` | — | Dominio raíz del proyecto Supabase (requerida) |
@@ -176,7 +170,7 @@ Guía completa con ejemplos ❌/✅ y checklist: [`demo-docs/guia-preparar-pdfs.
 Pensado para que cualquier visitante pueda probar la app sin contaminar la base ni agotar cuotas gratuitas:
 
 - Cada visitante recibe una **sesión anónima** aislada: sus documentos e historiales son invisibles para los demás
-- Tras **1 hora de inactividad**, un trabajo de limpieza borra sus documentos, conversaciones y mensajes (barrido al arrancar y cada 30 minutos)
+- Tras **1 hora de inactividad**, la limpieza perezosa borra sus documentos, conversaciones y mensajes (barrido con throttling al validar cada sesión)
 - Límites por sesión: **5 documentos**, **300 fragmentos** indexados y **15 mensajes de chat por día**
 - Límite global: **50 subidas por día**
 - Los errores de límite responden con mensajes amigables en español (HTTP 400/429)
@@ -191,35 +185,39 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 ## Estructura del proyecto
 
 ```
-├── client/                  # Frontend React + Vite + Tailwind
-│   └── src/
-│       ├── components/      # Header, PdfUploader, DocumentList, ChatWindow, MessageBubble
-│       ├── hooks/           # useDocuments, useChatStream (parser SSE propio)
-│       ├── lib/             # api.ts (fetch tipado), sse.ts
-│       └── types.ts
-├── server/                  # Backend Express + TypeScript
-│   └── src/
-│       ├── config/          # env, supabase, gemini, groq
-│       ├── controllers/     # documentController, chatController
-│       ├── middleware/      # errorHandler, session
-│       ├── routes/          # documentRoutes, chatRoutes
-│       ├── services/        # pdfService, chatService, cleanupService
-│       ├── scripts/         # verify-setup (npm run verify)
-│       └── utils/           # errors, rateLimiter, sse
-└── supabase/
-    └── schema.sql          # Esquema completo, seguro por defecto (RLS + revocaciones)
+├── src/
+│   ├── app/
+│   │   ├── api/                 # Route Handlers: health, documents, upload,
+│   │   │                        # [fileName], chat (SSE), conversations/[id]/messages
+│   │   ├── layout.tsx           # <html lang="es"> + metadata
+│   │   ├── page.tsx             # Panel ('use client')
+│   │   └── globals.css          # Tailwind v4
+│   ├── server/                  # Lógica de backend (Node runtime)
+│   │   ├── env.ts               # Config tipada con validación fail-fast
+│   │   ├── gemini/groq/supabase # Clientes SDK
+│   │   ├── session.ts           # Validación X-Session-Token + barrido perezoso TTL
+│   │   ├── cleanupService.ts    # Purga de sesiones expiradas (> 1h)
+│   │   ├── pdfService.ts        # Ingesta: parse → split → embeddings → insert
+│   │   ├── chatService.ts       # RAG: retrieve → prompt → stream Groq → persist
+│   │   └── errors/rateLimiter   # HttpError y contadores diarios
+│   ├── components/              # Header, PdfUploader, DocumentList, ChatWindow, MessageBubble
+│   ├── hooks/                   # useDocuments, useChatStream (parser SSE propio)
+│   ├── lib/                     # api.ts (fetch tipado), sse.ts
+│   └── types.ts
+├── scripts/                     # verify-setup (npm run verify) y audit-data (npm run audit)
+├── supabase/schema.sql          # Esquema completo, seguro por defecto (RLS + revocaciones)
+└── demo-docs/                   # Knowledge base pública de la demo (fuentes Markdown)
 ```
 
 ## Scripts disponibles
 
-| Carpeta | Comando | Acción |
-| :--- | :--- | :--- |
-| `server/` | `npm run dev` | Desarrollo con recarga automática |
-| `server/` | `npm run build` / `npm start` | Compilar a `dist/` y ejecutar producción |
-| `server/` | `npm run typecheck` | Verificación de tipos |
-| `server/` | `npm run verify` | Prueba de conexión con Gemini, Supabase y Groq |
-| `client/` | `npm run dev` | Desarrollo en puerto 5173 |
-| `client/` | `npm run build` | Build de producción |
+| Comando | Acción |
+| :--- | :--- |
+| `npm run dev` | Desarrollo en http://localhost:3000 |
+| `npm run build` / `npm start` | Build y ejecución de producción |
+| `npm run typecheck` | Verificación de tipos |
+| `npm run verify` | Prueba de conexión con Gemini, Supabase y Groq |
+| `npm run audit` | Auditoría del contenido de la BD |
 
 ## Estado del proyecto
 
@@ -228,6 +226,7 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 - [x] Fase 2 — Pipeline de ingesta de PDFs
 - [x] Fase 3 — Chat RAG con streaming SSE y memoria conversacional
 - [x] Fase 4 — Panel de administración multi-tenant
-- [ ] Fase 5 — Despliegue (Vercel + Render) y demo pública
+- [x] Migración a Next.js unificado (App Router, API Routes, SSE nativo)
+- [ ] Fase 5 — Despliegue en Vercel y demo pública
 
 ¿Quieres profundizar en la arquitectura o modificar el proyecto? El archivo [`AGENTS.md`](AGENTS.md) documenta la estructura interna, las convenciones y los errores comunes ya resueltos.

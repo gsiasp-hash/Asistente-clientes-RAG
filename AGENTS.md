@@ -4,10 +4,7 @@ Este archivo existe para que cualquier agente de IA (Claude Code, Cursor, Copilo
 
 ## Qué es este proyecto
 
-Asistente de soporte al cliente basado en **RAG** (Retrieval-Augmented Generation): los usuarios suben PDFs de conocimiento y un chat responde preguntas anclándose únicamente a esos documentos, con respuestas en streaming. Monorepo con dos carpetas:
-
-- `server/` — API Express 5 + TypeScript (puerto 5000)
-- `client/` — Frontend React + Vite + TypeScript + Tailwind CSS v4 (puerto 5173)
+Asistente de soporte al cliente basado en **RAG** (Retrieval-Augmented Generation): los usuarios suben PDFs de conocimiento y un chat responde preguntas anclándose únicamente a esos documentos, con respuestas en streaming. Aplicación única **Next.js 16 (App Router)** en la raíz del repo: frontend React 19 + Tailwind CSS v4 y API mediante Route Handlers, mismo origen sin CORS. Desarrollo en el puerto 3000.
 
 Stack completo, pipeline interno y documentación de la API: [`README.md`](README.md).
 
@@ -32,38 +29,34 @@ Stack completo, pipeline interno y documentación de la API: [`README.md`](READM
 cd server && cp .env.example .env
 ```
 
-Completar como mínimo: `GROQ_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`. El resto de variables tiene valores por defecto razonables (ver tabla en README).
+Completar como mínimo: `GROQ_API_KEY`, `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_KEY`. El resto de variables tiene valores por defecto razonables (ver tabla en README). El `.env` vive en la raíz y Next lo carga automáticamente; en producción las mismas variables se configuran cifradas en Vercel Environment Variables.
 
 ### 4. Instalar y correr
 
 ```bash
-# Terminal 1 — backend
-cd server && npm install && npm run dev          # http://localhost:5000
-
-# Terminal 2 — frontend
-cd client && npm install && npm run dev          # http://localhost:5173 (proxy /api → 5000)
+npm install
+npm run dev          # http://localhost:3000
 ```
 
 ### 5. Validar que todo funciona
 
 ```bash
-cd server && npm run verify    # prueba embeddings (Gemini), RPC (Supabase) y modelos (Groq)
+npm run verify    # prueba embeddings (Gemini), RPC (Supabase) y modelos (Groq)
 ```
 
 Salida esperada: los tres checks con ✓. Si algo falla, el detalle indica qué servicio revisar.
 
 ## Comandos
 
-| Carpeta | Comando | Uso |
-| :--- | :--- | :--- |
-| `server/` | `npm run dev` | Desarrollo con recarga automática (tsx watch) |
-| `server/` | `npm run typecheck` | Verificación de tipos — correr SIEMPRE después de editar código del servidor |
-| `server/` | `npm run build` / `start` | Compilar a `dist/` y ejecutar producción |
-| `server/` | `npm run verify` | Smoke test de conexión con los 3 servicios externos |
-| `client/` | `npm run dev` | Desarrollo Vite |
-| `client/` | `npm run build` | Typecheck + bundle de producción — correr SIEMPRE después de editar código del cliente |
+| Comando | Uso |
+| :--- | :--- |
+| `npm run dev` | Desarrollo con recarga automática (http://localhost:3000) |
+| `npm run typecheck` | Verificación de tipos |
+| `npm run build` | Build de producción (incluye typecheck) — correr SIEMPRE tras editar código |
+| `npm run verify` | Smoke test de conexión con los 3 servicios externos |
+| `npm run audit` | Auditoría del contenido de la BD |
 
-Regla de oro: tras cualquier cambio, correr `typecheck` (servidor) o `build` (cliente) antes de dar la tarea por terminada.
+Regla de oro: tras cualquier cambio, correr `npm run build` antes de dar la tarea por terminada.
 
 ## Arquitectura en una mirada
 
@@ -78,15 +71,15 @@ Consulta:  pregunta → embedding (RETRIEVAL_QUERY)
            → respuesta persistida con fuentes en messages.sources
 ```
 
-Código por capas: `services/` (lógica) → `controllers/` (HTTP/SSE) → `routes/` (montaje). Configuración centralizada en `src/config/env.ts` con validación fail-fast al arrancar.
+Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server/*.ts` (services y clientes SDK). La sesión se valida con `requireSession(request)` dentro de cada handler. Configuración centralizada en `src/server/env.ts` con validación fail-fast. Las rutas que tocan IA o PDFs declaran `runtime = 'nodejs'` y `maxDuration = 60`; `pdf-parse`/`pdfjs-dist` van en `serverExternalPackages` para que su worker no pase por el bundler.
 
 ## Modelo multi-tenant (importante para cualquier cambio)
 
-- Toda ruta (salvo `/api/health`) exige header `X-Session-Token` — validado por `middleware/session.ts`, que además registra actividad en la tabla `sessions`
+- Toda ruta (salvo `/api/health`) exige header `X-Session-Token` — validado por `src/server/session.ts`, que además registra actividad en la tabla `sessions`
 - `document_sections.session_id` y `conversations.session_id`: `NULL` = documento global de demostración (visible a todos); token = privado del visitante
 - Subir con header `X-Admin-Token` igual a `ADMIN_TOKEN` guarda como global y omite límites
 - Límites: 5 documentos y 300 chunks por sesión, 15 mensajes/sesión/día, 50 subidas/día global (`utils/rateLimiter.ts`, contadores en memoria)
-- `services/cleanupService.ts` purga sesiones inactivas > `SESSION_TTL_HOURS` al arrancar y cada 30 min
+- La limpieza perezosa (`session.ts` → `cleanupService.ts`) purga sesiones inactivas > `SESSION_TTL_HOURS` con throttling de 10 min al validar sesiones (patrón serverless: no hay proceso persistente)
 - La RPC de búsqueda SIEMPRE recibe `p_session_id`; `initConversation` valida ownership (404 si no es tuya)
 
 ## Convenciones del proyecto
@@ -103,15 +96,17 @@ Código por capas: `services/` (lógica) → `controllers/` (HTTP/SSE) → `rout
 | :--- | :--- | :--- |
 | RPC falla con `PGRST125 Invalid path` | `SUPABASE_URL` incluye `/rest/v1` | Usar solo el dominio raíz |
 | RPC no encuentra función con 4 args | Falta ejecutar `supabase/schema.sql` o su caché | Re-ejecutar SQL y `NOTIFY pgrst, 'reload schema'` |
-| El stream SSE nunca termina en el cliente | Falta `res.end()` tras `done`/`error` | Cerrar siempre la respuesta |
+| El stream SSE nunca termina en el cliente | Falta `controller.close()` tras `done`/`error` | Cerrar siempre el ReadableStream en `finally` |
 | El modelo "razona" en vez de responder | gpt-oss emite reasoning | Mantener `reasoning_format: 'hidden'` en la llamada a Groq |
-| `pdf-parse` crashea al importar | API v1 vieja | v2 usa clase: `new PDFParse({ data })` → `getText()` → siempre `destroy()` en `finally` |
+| `pdf-parse` crashea en Next con error de worker | El bundler rompe `pdf.worker.mjs` de pdf.js | Mantener `pdf-parse` y `pdfjs-dist` en `serverExternalPackages` |
+| `pdf-parse` falla al usarlo | API v1 vieja | v2 usa clase: `new PDFParse({ data })` → `getText()` → siempre `destroy()` en `finally` |
 | 400 en cualquier endpoint desde curl | Falta header de sesión | Agregar `-H "X-Session-Token: <8-64 chars alfanum>"` |
+| Scripts de `scripts/` no ven `.env` | Falta dotenv | Ya importan `dotenv/config`; ejecutarlos vía `npm run verify` / `npm run audit` |
 | Respuestas 429 inesperadas en pruebas | Contadores diarios activos | Reiniciar el server los vacía (memoria) o ajustar env |
 
 ## Tareas típicas y cómo abordarlas
 
-- **"Levanta la app"**: iniciar backend y frontend (paso 4), confirmar `/api/health` y abrir localhost:5173
-- **"Agrega un endpoint"**: service → controller → route, con validación de entrada y `HttpError` para fallos; registrar contador de rate-limit si consume cuota de IA
-- **"Cambie las claves/modelos"**: actualizar `server/.env` y correr `npm run verify`
+- **"Levanta la app"**: `npm run dev` (paso 4), confirmar `/api/health` y abrir localhost:3000
+- **"Agrega un endpoint"**: crear `src/app/api/<ruta>/route.ts` delgado (validación + `HttpError` + `jsonError`) apoyado en un service de `src/server/`; declarar `runtime='nodejs'` si usa SDK/PDF; registrar contador de rate-limit si consume cuota de IA
+- **"Cambie las claves/modelos"**: actualizar `.env` (o las Environment Variables de Vercel) y correr `npm run verify`
 - **"La BD está vacía/rara"**: re-ejecutar `supabase/schema.sql` es destructivo solo si borras datos; preferir migraciones incrementales como archivos SQL nuevos versionados
