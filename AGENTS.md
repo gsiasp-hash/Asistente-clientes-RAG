@@ -102,7 +102,7 @@ Código por capas: `services/` (lógica) → `controllers/` (HTTP/SSE) → `rout
 | Síntoma | Causa | Solución |
 | :--- | :--- | :--- |
 | RPC falla con `PGRST125 Invalid path` | `SUPABASE_URL` incluye `/rest/v1` | Usar solo el dominio raíz |
-| RPC no encuentra función con 4 args | Falta ejecutar `supabase/schema.sql` o su caché | Re-ejecutar SQL y `NOTIFY pgrst, 'reload schema'` (ver `supabase/multi-tenant.sql`) |
+| RPC no encuentra función con 4 args | Falta ejecutar `supabase/schema.sql` o su caché | Re-ejecutar SQL y `NOTIFY pgrst, 'reload schema'` |
 | El stream SSE nunca termina en el cliente | Falta `res.end()` tras `done`/`error` | Cerrar siempre la respuesta |
 | El modelo "razona" en vez de responder | gpt-oss emite reasoning | Mantener `reasoning_format: 'hidden'` en la llamada a Groq |
 | `pdf-parse` crashea al importar | API v1 vieja | v2 usa clase: `new PDFParse({ data })` → `getText()` → siempre `destroy()` en `finally` |
@@ -114,4 +114,4 @@ Código por capas: `services/` (lógica) → `controllers/` (HTTP/SSE) → `rout
 - **"Levanta la app"**: iniciar backend y frontend (paso 4), confirmar `/api/health` y abrir localhost:5173
 - **"Agrega un endpoint"**: service → controller → route, con validación de entrada y `HttpError` para fallos; registrar contador de rate-limit si consume cuota de IA
 - **"Cambie las claves/modelos"**: actualizar `server/.env` y correr `npm run verify`
-- **"La BD está vacía/rara"**: re-ejecutar `supabase/schema.sql` es destructivo solo si borras datos; preferir migraciones incrementales estilo `supabase/multi-tenant.sql`
+- **"La BD está vacía/rara"**: re-ejecutar `supabase/schema.sql` es destructivo solo si borras datos; preferir migraciones incrementales como archivos SQL nuevos versionados

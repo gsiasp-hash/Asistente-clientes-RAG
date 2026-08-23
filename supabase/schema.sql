@@ -98,3 +98,16 @@ ALTER TABLE document_sections ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sessions ENABLE ROW LEVEL SECURITY;
+
+-- Bloquear acceso directo a tablas desde claves publishable (anon/authenticated).
+-- Solo el backend con service_role lee y escribe.
+REVOKE ALL ON document_sections FROM anon, authenticated;
+REVOKE ALL ON conversations FROM anon, authenticated;
+REVOKE ALL ON messages FROM anon, authenticated;
+REVOKE ALL ON sessions FROM anon, authenticated;
+
+-- La RPC de búsqueda solo ejecutable desde el backend
+REVOKE EXECUTE ON FUNCTION match_document_sections(VECTOR(768), FLOAT, INT, TEXT)
+  FROM anon, authenticated;
+
+NOTIFY pgrst, 'reload schema';

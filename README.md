@@ -207,8 +207,7 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 │       ├── scripts/         # verify-setup (npm run verify)
 │       └── utils/           # errors, rateLimiter, sse
 └── supabase/
-    ├── schema.sql           # Esquema completo para instalaciones nuevas
-    └── multi-tenant.sql     # Migración para bases preexistentes
+    └── schema.sql          # Esquema completo, seguro por defecto (RLS + revocaciones)
 ```
 
 ## Scripts disponibles
