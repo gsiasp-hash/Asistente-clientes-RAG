@@ -77,10 +77,13 @@ async function prepare(request: Request): Promise<PreparedChat> {
   }
 
   const conversationId = await initConversation(conversationIdInput, sessionId)
-  const history = await loadHistory(conversationId)
-  await persistUserMessage(conversationId, message)
-
-  const context = await retrieveContext(message, sessionId)
+  const [history, context] = await Promise.all([
+    loadHistory(conversationId).then(async (loaded) => {
+      await persistUserMessage(conversationId, message)
+      return loaded
+    }),
+    retrieveContext(message, sessionId),
+  ])
   const prompt = buildPrompt(history, context, message)
 
   return { sessionId, conversationId, context, prompt }

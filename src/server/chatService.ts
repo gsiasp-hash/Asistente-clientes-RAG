@@ -64,12 +64,13 @@ export async function loadHistory(conversationId: string): Promise<HistoryMessag
     .from('messages')
     .select('role, content')
     .eq('conversation_id', conversationId)
-    .order('created_at', { ascending: true })
+    .order('created_at', { ascending: false })
+    .limit(HISTORY_LIMIT)
 
   if (error) throw new Error(`Supabase al cargar historial: ${error.message}`)
 
-  const rows = (data ?? []) as Array<{ role: string; content: string }>
-  return rows.slice(-HISTORY_LIMIT).map((r) => ({ role: r.role as HistoryMessage['role'], content: r.content }))
+  const rows = ((data ?? []) as Array<{ role: string; content: string }>).reverse()
+  return rows.map((r) => ({ role: r.role as HistoryMessage['role'], content: r.content }))
 }
 
 export interface ConversationMessage {
