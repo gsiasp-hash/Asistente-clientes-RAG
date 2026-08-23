@@ -19,3 +19,6 @@ logs/
 Thumbs.db
 .idea/
 .vscode/
+
+# PDFs de la demo (solo se versionan las fuentes)
+demo-docs/*.pdf
