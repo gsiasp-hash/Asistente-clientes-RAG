@@ -228,7 +228,9 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 - [x] Fase 2 — Pipeline de ingesta de PDFs
 - [x] Fase 3 — Chat RAG con streaming SSE y memoria conversacional
 - [x] Fase 4 — Panel de administración multi-tenant
-- [x] Migración a Next.js unificado (App Router, API Routes, SSE nativo)
-- [ ] Fase 5 — Despliegue en Vercel y demo pública
+- [x] Migración a Next.js unificado (App Router, Route Handlers, SSE nativo)
+- [x] Fase 5 — Despliegue en Vercel y demo pública
+
+**Demo en vivo**: [asistente-rag-plum.vercel.app](https://asistente-rag-plum.vercel.app)
 
 ¿Quieres profundizar en la arquitectura o modificar el proyecto? El archivo [`AGENTS.md`](AGENTS.md) documenta la estructura interna, las convenciones y los errores comunes ya resueltos.
