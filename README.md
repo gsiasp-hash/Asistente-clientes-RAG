@@ -22,7 +22,7 @@ Sistema de soporte al cliente inteligente basado en **RAG** (Retrieval-Augmented
 | Base de datos vectorial | Supabase (PostgreSQL + pgvector) |
 | Embeddings | Google Gemini — `gemini-embedding-001` (768 dimensiones) |
 | LLM | Groq Cloud — `openai/gpt-oss-120b` |
-| Procesamiento PDF | pdf-parse v2 + LangChain TextSplitter (500 chars / overlap 50) |
+| Procesamiento PDF | unpdf (pdf.js serverless) + LangChain TextSplitter (500 chars / overlap 50) |
 
 Todos los modelos son configurables vía variables de entorno, ya que los proveedores rotan sus catálogos con frecuencia.
 
@@ -181,7 +181,7 @@ La seguridad de acceso directo a la base está cubierta con RLS activado y sin p
 
 ## Cómo funciona (pipeline)
 
-1. **Ingesta**: PDF → extracción de texto (pdf-parse) → normalización → fragmentación (500 chars, overlap 50) → embeddings por lotes de 100 con `RETRIEVAL_DOCUMENT` → inserción en `document_sections`
+1. **Ingesta**: PDF → extracción de texto (unpdf) → normalización → fragmentación (500 chars, overlap 50) → embeddings por lotes de 100 con `RETRIEVAL_DOCUMENT` → inserción en `document_sections`
 2. **Consulta**: pregunta → embedding con `RETRIEVAL_QUERY` → RPC `match_document_sections` (top 3, globales + sesión propia) → prompt con reglas anti-alucinación + historial (10 msgs) + contexto recuperado → streaming desde Groq → respuesta persistida con sus fuentes
 
 ## Estructura del proyecto

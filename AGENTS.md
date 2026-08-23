@@ -61,7 +61,7 @@ Regla de oro: tras cualquier cambio, correr `npm run build` antes de dar la tare
 ## Arquitectura en una mirada
 
 ```
-Ingesta:   PDF → pdf-parse v2 → RecursiveCharacterTextSplitter(500/50)
+Ingesta:   PDF → unpdf (pdf.js serverless) → RecursiveCharacterTextSplitter(500/50)
            → Gemini embedContent lote 100 (RETRIEVAL_DOCUMENT) → Supabase document_sections
 
 Consulta:  pregunta → embedding (RETRIEVAL_QUERY)
@@ -71,7 +71,7 @@ Consulta:  pregunta → embedding (RETRIEVAL_QUERY)
            → respuesta persistida con fuentes en messages.sources
 ```
 
-Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server/*.ts` (services y clientes SDK). La sesión se valida con `requireSession(request)` dentro de cada handler. Configuración centralizada en `src/server/env.ts` con validación fail-fast. Las rutas que tocan IA o PDFs declaran `runtime = 'nodejs'` y `maxDuration = 60`; `pdf-parse`/`pdfjs-dist` van en `serverExternalPackages` para que su worker no pase por el bundler.
+Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server/*.ts` (services y clientes SDK). La sesión se valida con `requireSession(request)` dentro de cada handler. Configuración centralizada en `src/server/env.ts` con validación fail-fast. Las rutas que tocan IA o PDFs declaran `runtime = 'nodejs'` y `maxDuration = 60`.
 
 ## Modelo multi-tenant (importante para cualquier cambio)
 
@@ -98,8 +98,8 @@ Código por capas: `src/app/api/*/route.ts` (HTTP/SSE, delgados) → `src/server
 | RPC no encuentra función con 4 args | Falta ejecutar `supabase/schema.sql` o su caché | Re-ejecutar SQL y `NOTIFY pgrst, 'reload schema'` |
 | El stream SSE nunca termina en el cliente | Falta `controller.close()` tras `done`/`error` | Cerrar siempre el ReadableStream en `finally` |
 | El modelo "razona" en vez de responder | gpt-oss emite reasoning | Mantener `reasoning_format: 'hidden'` en la llamada a Groq |
-| `pdf-parse` crashea en Next con error de worker | El bundler rompe `pdf.worker.mjs` de pdf.js | Mantener `pdf-parse` y `pdfjs-dist` en `serverExternalPackages` |
-| `pdf-parse` falla al usarlo | API v1 vieja | v2 usa clase: `new PDFParse({ data })` → `getText()` → siempre `destroy()` en `finally` |
+| pdf.js crasheaba en Vercel (`DOMMatrix is not defined`, 500 vacío) | El build de pdf.js para navegador referencia globals del browser que no existen en lambdas | Extracción vía `unpdf` (build serverless de pdf.js, import dinámico perezoso); nunca importar pdf.js de navegador en el servidor |
+| `extractPdf` corre contra timeout de 15s (`Promise.race`) y clasifica errores a 422 amigables (contraseña vs dañado); el error crudo queda en logs como `[extractPdf]` |
 | Upload de PDF corrupto colgaba o daba 500 feo | pdf.js entra en bucle con xref malformado y lanza excepciones sin clasificar | `extractPdf` corre contra timeout de 15s (`Promise.race`) y clasifica errores a 422 amigables (contraseña vs dañado); `destroy()` también tiene tope de 3s |
 | Token crasheaba en contextos inseguros o storage bloqueado | `crypto.randomUUID` exige contexto seguro (https/localhost) y el getter de `localStorage` puede lanzar | `api.ts` envuelve storage en try/catch con fallback a token en memoria y generador alfanumérico propio |
 | 400 en cualquier endpoint desde curl | Falta header de sesión | Agregar `-H "X-Session-Token: <8-64 chars alfanum>"` |

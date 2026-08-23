@@ -1,34 +1,30 @@
-import type { PDFParse } from 'pdf-parse'
 import { RecursiveCharacterTextSplitter } from '@langchain/textsplitters'
 import { supabase } from './supabase'
 import { embedTexts } from './gemini'
 import { HttpError } from './errors'
 
-type ParserConstructor = new (options: { data: Buffer }) => PDFParse
-
-let parserConstructor: ParserConstructor | null = null
-
-function polyfillBrowserGlobals(): void {
-  const g = globalThis as Record<string, unknown>
-  g.DOMMatrix ??= class DummyMatrix {}
-  g.Path2D ??= class DummyPath2D {}
-  g.ImageData ??= class DummyImageData {}
+interface PdfTextExtractor {
+  (buffer: Buffer): Promise<{ text: string; pages: number }>
 }
 
-async function getParser(): Promise<ParserConstructor> {
-  if (!parserConstructor) {
-    polyfillBrowserGlobals()
-    const mod = await import('pdf-parse')
-    parserConstructor = mod.PDFParse as unknown as ParserConstructor
+let extractor: PdfTextExtractor | null = null
+
+async function getExtractor(): Promise<PdfTextExtractor> {
+  if (!extractor) {
+    const { extractText, getDocumentProxy } = await import('unpdf')
+    extractor = async (buffer) => {
+      const pdf = await getDocumentProxy(new Uint8Array(buffer))
+      const result = await extractText(pdf, { mergePages: true })
+      return { text: result.text, pages: result.totalPages }
+    }
   }
-  return parserConstructor
+  return extractor
 }
 
 const CHUNK_SIZE = 500
 const CHUNK_OVERLAP = 50
 const INSERT_BATCH_SIZE = 200
 const PARSE_TIMEOUT_MS = 15_000
-const DESTROY_TIMEOUT_MS = 3_000
 export const MAX_DOCS_PER_SESSION = 5
 export const MAX_CHUNKS_PER_SESSION = 300
 
@@ -80,8 +76,7 @@ function pdfFriendlyError(err: unknown): HttpError {
 }
 
 async function extractPdf(buffer: Buffer): Promise<{ text: string; pages: number }> {
-  const Parser = await getParser()
-  const parser = new Parser({ data: buffer })
+  const run = await getExtractor()
   let timer: NodeJS.Timeout | undefined
   try {
     const timeout = new Promise<never>((_, reject) => {
@@ -89,17 +84,13 @@ async function extractPdf(buffer: Buffer): Promise<{ text: string; pages: number
         reject(new HttpError(422, 'El PDF tardó demasiado en procesarse. Prueba con un documento más pequeño.'))
       }, PARSE_TIMEOUT_MS)
     })
-    const result = await Promise.race([parser.getText(), timeout])
-    return { text: result.text, pages: result.total }
+    return await Promise.race([run(buffer), timeout])
   } catch (err) {
     if (err instanceof HttpError) throw err
+    console.error('[extractPdf]', err)
     throw pdfFriendlyError(err)
   } finally {
     clearTimeout(timer)
-    await Promise.race([
-      parser.destroy().catch(() => {}),
-      new Promise((resolve) => setTimeout(resolve, DESTROY_TIMEOUT_MS)),
-    ])
   }
 }
 
