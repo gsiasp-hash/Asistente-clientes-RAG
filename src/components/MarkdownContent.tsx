@@ -1,5 +1,17 @@
 import ReactMarkdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
+import rehypeRaw from 'rehype-raw'
+import rehypeSanitize from 'rehype-sanitize'
+import { defaultSchema, type Schema } from 'hast-util-sanitize'
+
+const sanitizeSchema: Schema = {
+  ...defaultSchema,
+  tagNames: [...(defaultSchema.tagNames ?? []), 'u', 's', 'sub', 'sup', 'span'],
+  attributes: {
+    ...defaultSchema.attributes,
+    code: [...(defaultSchema.attributes?.code ?? []), ['className', /^language-./]],
+  },
+}
 
 interface MarkdownContentProps {
   content: string
@@ -10,6 +22,7 @@ export function MarkdownContent({ content }: MarkdownContentProps) {
     <div className="[&>*:first-child]:mt-0 [&>*:last-child]:mb-0 space-y-2 break-words text-sm leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, sanitizeSchema]]}
         components={{
           table: ({ children }) => (
             <div className="my-1 overflow-x-auto rounded-lg border border-slate-200">

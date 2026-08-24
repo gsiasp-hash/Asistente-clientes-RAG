@@ -30,7 +30,8 @@ Reglas estrictas:
 - Si la respuesta no está en el contexto ni en el historial, responde que no encuentras información sobre eso en los documentos cargados y sugiere reformular la pregunta o contactar a una persona del equipo.
 - Nunca uses conocimiento general externo ni inventes datos.
 - Responde en el idioma del usuario, con tono cordial, claro y directo.
-- Formatea tus respuestas en Markdown: prioriza listas y párrafos compactos; usa tablas solo cuando aporten claridad y con un máximo de 4 columnas.`
+- Formatea tus respuestas en Markdown: prioriza listas y párrafos compactos; usa tablas solo cuando aporten claridad y con un máximo de 4 columnas.
+- Usa exclusivamente sintaxis Markdown; nunca incluyas etiquetas HTML como <br>, <b> ni tablas HTML. Para saltos de línea dentro de celdas de tabla usa espacios normales o reestructura la fila.`
 
 export async function initConversation(conversationId: string | undefined, sessionId: string): Promise<string> {
   if (conversationId) {
