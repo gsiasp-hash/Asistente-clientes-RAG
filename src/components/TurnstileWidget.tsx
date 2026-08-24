@@ -32,6 +32,8 @@ export function TurnstileWidget({ siteKey, onTokenChange, resetSignal }: Turnsti
         sitekey: siteKey,
         action: 'chat',
         theme: 'light',
+        size: 'normal',
+        appearance: 'interaction-only',
         callback: (token: string) => onTokenChange(token),
         'expired-callback': () => onTokenChange(''),
         'error-callback': () => onTokenChange(''),
