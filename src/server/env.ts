@@ -65,6 +65,7 @@ export const env = {
   },
   get allowedOrigins() {
     return list(process.env.ALLOWED_ORIGINS, [
+      'https://asistenterag.guillermosias.dev',
       'https://asistente-rag-plum.vercel.app',
       'http://localhost:3000',
     ])
