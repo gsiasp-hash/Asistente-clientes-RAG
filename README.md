@@ -254,6 +254,6 @@ Nota aceptada: los contadores por sesión viven en memoria (se reinician con cad
 - [x] Migración a Next.js unificado (App Router, Route Handlers, SSE nativo)
 - [x] Fase 5 — Despliegue en Vercel y demo pública
 
-**Demo en vivo**: [asistente-rag-plum.vercel.app](https://asistente-rag-plum.vercel.app)
+**Demo en vivo**: [asistenterag.guillermosias.dev](https://asistenterag.guillermosias.dev)
 
 ¿Quieres profundizar en la arquitectura o modificar el proyecto? El archivo [`AGENTS.md`](AGENTS.md) documenta la estructura interna, las convenciones y los errores comunes ya resueltos.
